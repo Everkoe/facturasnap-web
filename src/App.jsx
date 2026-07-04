@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useInvoice } from './hooks/useInvoice';
 import { useTheme } from './hooks/useTheme';
 import { InvoiceItem } from './components/InvoiceItem';
@@ -6,23 +6,15 @@ import { InvoiceItem } from './components/InvoiceItem';
 function App() {
   const { items, totals, addItem, removeItem, updateItem } = useInvoice();
   const { theme, toggleTheme } = useTheme();
-  const [copied, setCopied] = useState(false);
-
-  const copyToClipboard = () => {
-    const amount = totals.subtotal.toFixed(2);
-    navigator.clipboard.writeText(amount);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 pb-32 font-sans transition-colors">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 pb-40 font-sans transition-colors"> {/* Aumentado pb-32 a pb-48 */}
       {/* Header Minimalista */}
       <header className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 p-4 sticky top-0 z-10 transition-colors">
         <div className="max-w-xl mx-auto flex justify-between items-center">
           <h1 className="text-lg font-black text-blue-600 dark:text-blue-500 tracking-tight flex items-center gap-2">
             FACTURASNAP
-            <span className="bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 text-[10px] px-2 py-0.5 rounded-full uppercase">Calculadora del EverkoDeidad</span>
+            <span className="bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 text-[10px] px-2 py-0.5 rounded-full uppercase">Calculadora</span>
           </h1>
           
           <div className="flex items-center gap-3">
@@ -92,44 +84,30 @@ function App() {
         )}
       </main>
 
-      {/* Footer Optimizada para Copiado Rápido */}
+      {/* Footer */}
       <footer className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 p-5 shadow-[0_-10px_30px_rgba(0,0,0,0.04)] dark:shadow-none z-20 transition-colors">
         <div className="max-w-xl mx-auto space-y-4">
           
+          {/* Sección del Total a Cobrar (sin funcionalidad de copiar) */}
           <div 
-            onClick={copyToClipboard}
-            className={`group cursor-pointer flex justify-between items-center p-3 rounded-2xl transition-all border-2 ${
-                copied 
-                ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-900' 
-                : 'bg-gray-50 dark:bg-gray-800/50 border-transparent dark:border-gray-800 hover:border-blue-100 dark:hover:border-blue-900'
-            }`}
+            className={`group flex justify-between items-center p-3 rounded-2xl transition-all border-2 bg-gray-50 dark:bg-gray-800/50 border-transparent dark:border-gray-800`}
           >
             <div>
-              <div className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase leading-none mb-1">Subtotal (Monto sin IGV)</div>
+              <div className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase leading-none mb-1">TOTAL A COBRAR</div>
               <div className="text-xl font-mono font-bold text-gray-800 dark:text-gray-200 transition-colors">
-                S/ {totals.subtotal.toFixed(2)}
+                S/ {totals.total.toFixed(2)}
               </div>
-            </div>
-            <div className="flex flex-col items-end">
-              <span className={`text-[10px] font-bold uppercase transition-colors ${copied ? 'text-green-600 dark:text-green-400' : 'text-blue-600 dark:text-blue-400 group-hover:text-blue-700 dark:group-hover:text-blue-300'}`}>
-                {copied ? '¡Copiado!' : 'Clic para copiar'}
-              </span>
-              <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 mt-1 transition-colors ${copied ? 'text-green-500 dark:text-green-400' : 'text-gray-400 dark:text-gray-600 group-hover:text-blue-500 dark:group-hover:text-blue-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
-              </svg>
             </div>
           </div>
 
           <div className="flex justify-between items-center px-2">
             <div>
-              <div className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">IGV (18%)</div>
-              <div className="text-sm font-mono text-gray-500 dark:text-gray-400">S/ {totals.igv.toFixed(2)}</div>
+              <div className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">Subtotal (Sin IGV)</div>
+              <div className="text-sm font-mono text-gray-500 dark:text-gray-400">S/ {totals.subtotal.toFixed(2)}</div>
             </div>
             <div className="text-right">
-              <div className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">Total a Cobrar</div>
-              <div className="text-2xl font-black text-blue-600 dark:text-blue-500 font-mono transition-colors">
-                S/ {totals.total.toFixed(2)}
-              </div>
+              <div className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">IGV (18%)</div>
+              <div className="text-sm font-mono text-gray-500 dark:text-gray-400">S/ {totals.igv.toFixed(2)}</div>
             </div>
           </div>
 

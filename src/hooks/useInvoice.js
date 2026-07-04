@@ -1,60 +1,58 @@
 import { useState, useEffect } from 'react';
-import { calculateFromTotal } from '../utils/calculations';
+import { calculateFromLineTotal } from '../utils/calculations'; // Importar la nueva función
 
 export const useInvoice = () => {
   const [items, setItems] = useState(() => {
     const saved = localStorage.getItem('invoice_items');
-    return saved ? JSON.parse(saved) : [{ id: crypto.randomUUID(), description: '', quantity: 1, total: '' }];
-  });
-
-  const [clientData, setClientData] = useState(() => {
-    const saved = localStorage.getItem('invoice_client');
-    return saved ? JSON.parse(saved) : { type: '6', number: '', name: '', currency: 'PEN', docType: '1' };
+    // item.total ahora representa el lineTotalIncIGV
+    return saved ? JSON.parse(saved) : [{ id: crypto.randomUUID(), quantity: 1, total: '' }];
   });
 
   useEffect(() => {
     localStorage.setItem('invoice_items', JSON.stringify(items));
   }, [items]);
 
-  useEffect(() => {
-    localStorage.setItem('invoice_client', JSON.stringify(clientData));
-  }, [clientData]);
-
   const addItem = () => {
-    setItems([...items, { id: crypto.randomUUID(), description: '', quantity: 1, total: '' }]);
+    setItems(prevItems => [...prevItems, { id: crypto.randomUUID(), quantity: 1, total: '' }]);
   };
 
   const removeItem = (id) => {
-    if (items.length > 1) {
-      setItems(items.filter(item => item.id !== id));
-    }
+    setItems(prevItems => {
+      if (prevItems.length > 1) {
+        return prevItems.filter(item => item.id !== id);
+      }
+      return prevItems;
+    });
   };
 
   const updateItem = (id, field, value) => {
-    setItems(items.map(item => {
-      if (item.id === id) {
-        return { ...item, [field]: value };
-      }
-      return item;
-    }));
+    setItems(prevItems => {
+      return prevItems.map(item => {
+        if (item.id === id) {
+          // Aseguramos que quantity y total se guarden como números o cadena vacía
+          const updatedValue = (field === 'quantity' || field === 'total') ? (value === '' ? '' : Number(value)) : value;
+          return { ...item, [field]: updatedValue };
+        }
+        return item;
+      });
+    });
   };
 
   const totals = items.reduce((acc, item) => {
-    const calcs = calculateFromTotal(item.total, item.quantity);
+    // Usamos la nueva función calculateFromLineTotal
+    const calcs = calculateFromLineTotal(item.total, item.quantity);
     return {
-      subtotal: acc.subtotal + parseFloat(calcs.subtotal),
-      igv: acc.igv + parseFloat(calcs.igv),
-      total: acc.total + parseFloat(calcs.total),
+      subtotal: acc.subtotal + parseFloat(calcs.lineSubtotal),
+      igv: acc.igv + parseFloat(calcs.lineIgv),
+      total: acc.total + parseFloat(calcs.lineTotalIncIGV),
     };
   }, { subtotal: 0, igv: 0, total: 0 });
 
   return {
     items,
-    clientData,
     totals,
     addItem,
     removeItem,
     updateItem,
-    setClientData
   };
 };

@@ -1,8 +1,17 @@
-import React from 'react';
-import { calculateFromTotal } from '../utils/calculations';
+import React, { useState } from 'react';
+import { calculateFromLineTotal } from '../utils/calculations'; // Importar la nueva función
 
 export const InvoiceItem = ({ item, onUpdate, onRemove, autoFocus }) => {
-  const calcs = calculateFromTotal(item.total, item.quantity);
+  // item.total ahora es el lineTotalIncIGV
+  const calcs = calculateFromLineTotal(item.total, item.quantity);
+  const [copiedUnitPrice, setCopiedUnitPrice] = useState(false);
+
+  const copyUnitPriceToClipboard = () => {
+    // Copiamos el precio unitario sin IGV
+    navigator.clipboard.writeText(calcs.unitSubtotal);
+    setCopiedUnitPrice(true);
+    setTimeout(() => setCopiedUnitPrice(false), 2000);
+  };
 
   return (
     <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 mb-3 animate-in fade-in slide-in-from-bottom-2 transition-colors">
@@ -18,7 +27,7 @@ export const InvoiceItem = ({ item, onUpdate, onRemove, autoFocus }) => {
           />
         </div>
 
-        {/* Total (Inc. IGV) */}
+        {/* Monto Total (Inc. IGV) */}
         <div className="col-span-6">
           <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase mb-1 block">Monto Total (Inc. IGV)</label>
           <input
@@ -26,7 +35,7 @@ export const InvoiceItem = ({ item, onUpdate, onRemove, autoFocus }) => {
             autoFocus={autoFocus}
             className="w-full p-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none font-bold text-blue-700 dark:text-blue-400 text-lg transition-colors"
             placeholder="0.00"
-            value={item.total}
+            value={item.total} // item.total ahora es el lineTotalIncIGV
             onChange={(e) => onUpdate(item.id, 'total', e.target.value)}
           />
         </div>
@@ -42,10 +51,23 @@ export const InvoiceItem = ({ item, onUpdate, onRemove, autoFocus }) => {
             </svg>
           </button>
           <div className="text-[9px] text-gray-400 dark:text-gray-600 text-right font-mono">
-            <div>S/ {calcs.subtotal} +</div>
-            <div>S/ {calcs.igv} IGV</div>
+            <div>Sub. Línea: S/ {calcs.lineSubtotal}</div>
+            <div>IGV Línea: S/ {calcs.lineIgv}</div>
           </div>
         </div>
+      </div>
+      {/* Botón de Copiar Precio Unitario */}
+      <div className="mt-3">
+        <button 
+          onClick={copyUnitPriceToClipboard}
+          className={`w-full text-center py-2 rounded-lg text-xs font-bold transition-all ${
+            copiedUnitPrice 
+            ? 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400' 
+            : 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30'
+          }`}
+        >
+          {copiedUnitPrice ? '¡PRECIO UNITARIO COPIADO!' : `COPIAR PRECIO UNITARIO (SIN IGV): S/ ${calcs.unitSubtotal}`}
+        </button>
       </div>
     </div>
   );
