@@ -33,15 +33,12 @@ export const useInvoice = () => {
     }));
   };
 
-  // Agrega filas leídas de una nota; si la calculadora está vacía las reemplaza
+  // Las filas leídas de una nota reemplazan a las que hubiera en la calculadora
   const loadItems = (newItems) => {
-    setItems(prevItems => {
-      const isEmpty = prevItems.every(item => item.total === '');
-      const mapped = newItems.map(({ quantity, total }) => ({
-        id: crypto.randomUUID(), quantity, total: String(total), mode: INPUT_MODE.TOTAL,
-      }));
-      return isEmpty ? mapped : [...prevItems, ...mapped];
-    });
+    if (newItems.length === 0) return;
+    setItems(newItems.map(({ quantity, total }) => ({
+      id: crypto.randomUUID(), quantity, total: String(total), mode: INPUT_MODE.TOTAL,
+    })));
   };
 
   const resetItems = () => {
