@@ -13,7 +13,7 @@ function App() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 pb-40 font-sans transition-colors"> {/* Aumentado pb-32 a pb-48 */}
       {/* Header Minimalista */}
       <header className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 p-4 sticky top-0 z-10 transition-colors">
-        <div className="max-w-xl mx-auto flex justify-between items-center">
+        <div className="max-w-5xl mx-auto flex justify-between items-center">
           <h1 className="text-lg font-black text-blue-600 dark:text-blue-500 tracking-tight flex items-center gap-2">
             FACTURASNAP
             <span className="bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 text-[10px] px-2 py-0.5 rounded-full uppercase">Calculadora</span>
@@ -52,7 +52,8 @@ function App() {
         </div>
       </header>
 
-      <main className="max-w-xl mx-auto p-4">
+      <main className="max-w-5xl mx-auto p-4 lg:grid lg:grid-cols-[36rem_1fr] lg:gap-6 lg:items-start">
+        <div>
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xs font-bold text-gray-400 dark:text-gray-600 uppercase tracking-widest">Conceptos</h2>
           <button 
@@ -83,12 +84,15 @@ function App() {
           </div>
         )}
 
+        </div>
+
         <MessageBox />
       </main>
 
       {/* Footer */}
-      <footer className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 p-5 shadow-[0_-10px_30px_rgba(0,0,0,0.04)] dark:shadow-none z-20 transition-colors">
-        <div className="max-w-xl mx-auto space-y-4">
+      <footer className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 px-4 py-5 shadow-[0_-10px_30px_rgba(0,0,0,0.04)] dark:shadow-none z-20 transition-colors">
+        <div className="max-w-5xl mx-auto">
+        <div className="space-y-4 lg:w-[36rem]">
           
           {/* Sección del Total a Cobrar (sin funcionalidad de copiar) */}
           <div 
@@ -120,6 +124,7 @@ function App() {
             </div>
           </div>
 
+        </div>
         </div>
       </footer>
     </div>

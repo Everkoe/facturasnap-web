@@ -23,7 +23,7 @@ export const MessageBox = () => {
   };
 
   return (
-    <section className="mt-8 bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 transition-colors">
+    <section className="mt-8 lg:mt-0 lg:sticky lg:top-24 bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 transition-colors">
       <h2 className="text-xs font-bold text-gray-400 dark:text-gray-600 uppercase tracking-widest mb-3">
         Mensaje para el cliente
       </h2>
