@@ -82,11 +82,22 @@ export const calculateFromLineTotal = (lineTotalIncIGV, quantity = 1) => {
   };
 };
 
+export const INPUT_MODE = { TOTAL: 'total', UNIT: 'unit' };
+
+/** Total de la línea (con IGV), venga el monto escrito como total o como precio unitario. */
+export const getLineTotal = (item) => {
+  const entered = Number(item.total);
+  if (item.mode !== INPUT_MODE.UNIT) return item.total;
+  const qty = Number(item.quantity);
+  if (!Number.isFinite(entered) || !Number.isFinite(qty) || entered <= 0 || qty <= 0) return '';
+  return fromCents(toCents(entered * qty));
+};
+
 /** Suma las líneas en céntimos para que subtotal + IGV = total sin descuadres. */
 export const sumLines = (items) => {
   const cents = items.reduce(
     (acc, item) => {
-      const calcs = calculateFromLineTotal(item.total, item.quantity);
+      const calcs = calculateFromLineTotal(getLineTotal(item), item.quantity);
       return {
         subtotal: acc.subtotal + calcs.lineSubtotalCents,
         igv: acc.igv + calcs.lineIgvCents,

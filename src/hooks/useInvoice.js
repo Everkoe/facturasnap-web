@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { sumLines } from '../utils/calculations';
+import { sumLines, getLineTotal, INPUT_MODE } from '../utils/calculations';
 
 export const useInvoice = () => {
   const [items, setItems] = useState(() => {
@@ -13,7 +13,24 @@ export const useInvoice = () => {
   }, [items]);
 
   const addItem = () => {
-    setItems(prevItems => [...prevItems, { id: crypto.randomUUID(), quantity: 1, total: '' }]);
+    // La fila nueva hereda el modo de la última para no cambiar de modo en cada fila
+    setItems(prevItems => {
+      const mode = prevItems[prevItems.length - 1]?.mode ?? INPUT_MODE.TOTAL;
+      return [...prevItems, { id: crypto.randomUUID(), quantity: 1, total: '', mode }];
+    });
+  };
+
+  const toggleMode = (id) => {
+    setItems(prevItems => prevItems.map(item => {
+      if (item.id !== id) return item;
+      const qty = Number(item.quantity);
+      if (item.mode === INPUT_MODE.UNIT) {
+        return { ...item, mode: INPUT_MODE.TOTAL, total: getLineTotal(item) };
+      }
+      const entered = Number(item.total);
+      const unit = entered > 0 && qty > 0 ? String(Number((entered / qty).toFixed(4))) : '';
+      return { ...item, mode: INPUT_MODE.UNIT, total: unit };
+    }));
   };
 
   const resetItems = () => {
@@ -49,6 +66,7 @@ export const useInvoice = () => {
     addItem,
     removeItem,
     updateItem,
+    toggleMode,
     resetItems,
   };
 };
