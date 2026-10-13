@@ -2,8 +2,8 @@
 // La clave vive solo en la variable de entorno GEMINI_API_KEY; nunca llega al navegador.
 
 const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
-const DEFAULT_MODEL = 'gemini-2.5-flash';
-const FALLBACK_MODEL = 'gemini-2.5-flash-lite';
+// Se prueban en orden; los 2.5 solo se sirven a cuentas que ya los usaban, por eso arrancamos con la serie 3
+const MODELS = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite'];
 const MAX_BASE64_CHARS = 4_000_000;
 const MAX_ITEMS = 50;
 const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -77,7 +77,7 @@ class GeminiError extends Error {
 // Errores donde probar con otro modelo tiene sentido (cuota por modelo, modelo retirado, sobrecarga)
 const RETRYABLE_STATUSES = new Set([404, 429, 500, 503]);
 
-const getModels = () => [...new Set([process.env.GEMINI_MODEL || DEFAULT_MODEL, FALLBACK_MODEL])];
+const getModels = () => [...new Set([process.env.GEMINI_MODEL, ...MODELS].filter(Boolean))];
 
 const askGemini = async ({ image, mimeType }, model) => {
   const response = await fetch(`${GEMINI_URL}/${model}:generateContent`, {
@@ -88,7 +88,7 @@ const askGemini = async ({ image, mimeType }, model) => {
     },
     body: JSON.stringify({
       contents: [{ parts: [{ text: PROMPT }, { inline_data: { mime_type: mimeType, data: image } }] }],
-      generationConfig: { temperature: 0, responseMimeType: 'application/json', responseSchema: RESPONSE_SCHEMA },
+      generationConfig: { responseMimeType: 'application/json', responseSchema: RESPONSE_SCHEMA },
     }),
   });
 
