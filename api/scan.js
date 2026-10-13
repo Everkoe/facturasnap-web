@@ -1,0 +1,113 @@
+// Función serverless de Vercel: lee una nota de venta con Gemini y devuelve el documento (RUC/DNI) y las filas.
+// La clave vive solo en la variable de entorno GEMINI_API_KEY; nunca llega al navegador.
+
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
+const DEFAULT_MODEL = 'gemini-2.5-flash';
+const MAX_BASE64_CHARS = 4_000_000;
+const MAX_ITEMS = 50;
+const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+
+const PROMPT = `Eres un asistente que lee notas de venta peruanas escritas a mano o impresas.
+Extrae:
+- documento: el RUC (11 dígitos) o DNI (8 dígitos) del CLIENTE, escrito junto a "Señor(es)". Devuélvelo solo con dígitos, sin espacios ni guiones. No uses teléfonos, el número de la nota ni datos del negocio que emite la nota. Si no hay, devuelve null.
+- items: cada fila escrita en la tabla, con cantidad (número), descripcion (texto) e importe (el monto total de esa fila, número). Ignora filas vacías.
+- total: el total final de la nota como número, o null si no se ve.
+Si un número manuscrito es dudoso, devuelve tu mejor lectura. No inventes datos que no estén en la imagen.`;
+
+const RESPONSE_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    documento: { type: 'STRING', nullable: true },
+    items: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          cantidad: { type: 'NUMBER' },
+          descripcion: { type: 'STRING' },
+          importe: { type: 'NUMBER' },
+        },
+        required: ['cantidad', 'descripcion', 'importe'],
+      },
+    },
+    total: { type: 'NUMBER', nullable: true },
+  },
+  required: ['items'],
+};
+
+const isSameOrigin = (req) => {
+  const origin = req.headers.origin;
+  if (!origin) return true;
+  try {
+    return new URL(origin).host === req.headers.host;
+  } catch {
+    return false;
+  }
+};
+
+const toNumber = (value) => {
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? number : null;
+};
+
+/** Normaliza lo que devuelve el modelo para no confiar en su formato. */
+export const sanitizeResult = (raw) => {
+  const documento = typeof raw?.documento === 'string' ? raw.documento.replace(/\D/g, '') : '';
+  const items = (Array.isArray(raw?.items) ? raw.items : [])
+    .slice(0, MAX_ITEMS)
+    .map((item) => ({
+      cantidad: toNumber(item?.cantidad),
+      descripcion: String(item?.descripcion ?? '').slice(0, 120),
+      importe: toNumber(item?.importe),
+    }))
+    .filter((item) => item.cantidad !== null && item.cantidad > 0 && item.importe !== null && item.importe > 0);
+
+  return { documento: documento || null, items, total: toNumber(raw?.total) };
+};
+
+const askGemini = async ({ image, mimeType }) => {
+  const model = process.env.GEMINI_MODEL || DEFAULT_MODEL;
+  const response = await fetch(`${GEMINI_URL}/${model}:generateContent`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': process.env.GEMINI_API_KEY,
+    },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: PROMPT }, { inline_data: { mime_type: mimeType, data: image } }] }],
+      generationConfig: { temperature: 0, responseMimeType: 'application/json', responseSchema: RESPONSE_SCHEMA },
+    }),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`Gemini respondió ${response.status}: ${detail.slice(0, 300)}`);
+  }
+
+  const data = await response.json();
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error('Gemini no devolvió texto');
+  return JSON.parse(text);
+};
+
+export default async function handler(req, res) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido' });
+  if (!isSameOrigin(req)) return res.status(403).json({ error: 'Origen no permitido' });
+  if (!process.env.GEMINI_API_KEY) return res.status(500).json({ error: 'Falta configurar GEMINI_API_KEY en Vercel' });
+
+  const { image, mimeType } = req.body ?? {};
+  if (typeof image !== 'string' || !image || image.length > MAX_BASE64_CHARS) {
+    return res.status(400).json({ error: 'Imagen inválida o demasiado grande' });
+  }
+  if (!ALLOWED_MIME_TYPES.has(mimeType)) {
+    return res.status(400).json({ error: 'Formato de imagen no permitido' });
+  }
+
+  try {
+    const raw = await askGemini({ image, mimeType });
+    return res.status(200).json(sanitizeResult(raw));
+  } catch (error) {
+    console.error('scan error:', error.message);
+    return res.status(502).json({ error: 'No se pudo leer la imagen. Intenta de nuevo.' });
+  }
+}

@@ -3,10 +3,11 @@ import { useInvoice } from './hooks/useInvoice';
 import { useTheme } from './hooks/useTheme';
 import { InvoiceItem } from './components/InvoiceItem';
 import { MessageBox } from './components/MessageBox';
+import { DocumentScanner } from './components/DocumentScanner';
 import { TotalsPanel } from './components/TotalsPanel';
 
 function App() {
-  const { items, totals, addItem, removeItem, updateItem, toggleMode, resetItems } = useInvoice();
+  const { items, totals, addItem, removeItem, updateItem, toggleMode, loadItems, resetItems } = useInvoice();
   const { theme, toggleTheme } = useTheme();
 
   return (
@@ -81,6 +82,7 @@ function App() {
         <aside className="mt-6 space-y-4 lg:mt-0 lg:sticky lg:top-24">
           <TotalsPanel totals={totals} className="hidden lg:block shadow-sm" />
           <MessageBox />
+          <DocumentScanner onLoadItems={loadItems} />
         </aside>
       </main>
 

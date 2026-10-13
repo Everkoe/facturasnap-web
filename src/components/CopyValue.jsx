@@ -9,8 +9,8 @@ const VARIANTS = {
 };
 const COPIED_STYLE = 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400';
 
-/** Botón de ancho completo que muestra un valor y lo copia al hacer clic. */
-export const CopyValue = ({ label, value, variant = 'soft', large = false }) => {
+/** Botón de ancho completo que muestra un valor y lo copia al hacer clic. `raw` omite el prefijo S/. */
+export const CopyValue = ({ label, value, variant = 'soft', large = false, raw = false }) => {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -28,7 +28,7 @@ export const CopyValue = ({ label, value, variant = 'soft', large = false }) => 
     >
       <span className="min-w-0">
         <span className="block truncate text-[10px] font-semibold uppercase tracking-wide opacity-80">{label}</span>
-        <span className={`block font-mono font-bold leading-tight ${large ? 'text-2xl' : 'text-base'}`}>S/ {value}</span>
+        <span className={`block font-mono font-bold leading-tight ${large ? 'text-2xl' : 'text-base'}`}>{raw ? value : `S/ ${value}`}</span>
       </span>
       <span className="shrink-0 text-xs font-bold">{copied ? '✓ Copiado' : 'Copiar'}</span>
     </button>
