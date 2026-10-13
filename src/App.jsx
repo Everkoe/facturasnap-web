@@ -2,9 +2,11 @@ import React from 'react';
 import { useInvoice } from './hooks/useInvoice';
 import { useTheme } from './hooks/useTheme';
 import { InvoiceItem } from './components/InvoiceItem';
+import { MessageBox } from './components/MessageBox';
+import { CopyValue } from './components/CopyValue';
 
 function App() {
-  const { items, totals, addItem, removeItem, updateItem } = useInvoice();
+  const { items, totals, addItem, removeItem, updateItem, resetItems } = useInvoice();
   const { theme, toggleTheme } = useTheme();
 
   return (
@@ -37,13 +39,10 @@ function App() {
 
             <button 
               onClick={() => {
-                  if(confirm('¿Deseas limpiar todos los campos?')) {
-                      localStorage.clear();
-                      window.location.reload();
-                  }
+                  if (confirm('¿Empezar una nueva factura? Se borrarán todas las filas.')) resetItems();
               }} 
               className="p-2 text-gray-400 hover:text-red-500 transition-colors"
-              title="Limpiar todo"
+              title="Nueva factura"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -71,6 +70,7 @@ function App() {
               item={item} 
               onUpdate={updateItem} 
               onRemove={removeItem}
+              onEnter={addItem}
               autoFocus={index === items.length - 1 && items.length > 1}
             />
           ))}
@@ -82,6 +82,8 @@ function App() {
             <button onClick={addItem} className="text-blue-500 font-bold hover:underline">Añadir primera fila</button>
           </div>
         )}
+
+        <MessageBox />
       </main>
 
       {/* Footer */}
@@ -98,16 +100,23 @@ function App() {
                 S/ {totals.total.toFixed(2)}
               </div>
             </div>
+            <CopyValue value={totals.total.toFixed(2)} />
           </div>
 
           <div className="flex justify-between items-center px-2">
             <div>
               <div className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">Subtotal (Sin IGV)</div>
-              <div className="text-sm font-mono text-gray-500 dark:text-gray-400">S/ {totals.subtotal.toFixed(2)}</div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-mono text-gray-500 dark:text-gray-400">S/ {totals.subtotal.toFixed(2)}</span>
+                <CopyValue value={totals.subtotal.toFixed(2)} small />
+              </div>
             </div>
             <div className="text-right">
               <div className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">IGV (18%)</div>
-              <div className="text-sm font-mono text-gray-500 dark:text-gray-400">S/ {totals.igv.toFixed(2)}</div>
+              <div className="flex items-center justify-end gap-2">
+                <span className="text-sm font-mono text-gray-500 dark:text-gray-400">S/ {totals.igv.toFixed(2)}</span>
+                <CopyValue value={totals.igv.toFixed(2)} small />
+              </div>
             </div>
           </div>
 

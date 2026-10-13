@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { calculateFromLineTotal } from '../utils/calculations'; // Importar la nueva función
+import { sumLines } from '../utils/calculations';
 
 export const useInvoice = () => {
   const [items, setItems] = useState(() => {
@@ -16,6 +16,10 @@ export const useInvoice = () => {
     setItems(prevItems => [...prevItems, { id: crypto.randomUUID(), quantity: 1, total: '' }]);
   };
 
+  const resetItems = () => {
+    setItems([{ id: crypto.randomUUID(), quantity: 1, total: '' }]);
+  };
+
   const removeItem = (id) => {
     setItems(prevItems => {
       if (prevItems.length > 1) {
@@ -29,24 +33,15 @@ export const useInvoice = () => {
     setItems(prevItems => {
       return prevItems.map(item => {
         if (item.id === id) {
-          // Aseguramos que quantity y total se guarden como números o cadena vacía
-          const updatedValue = (field === 'quantity' || field === 'total') ? (value === '' ? '' : Number(value)) : value;
-          return { ...item, [field]: updatedValue };
+          // Se guarda el texto tal cual para no alterar lo que el usuario escribe (ej. "2.")
+          return { ...item, [field]: value };
         }
         return item;
       });
     });
   };
 
-  const totals = items.reduce((acc, item) => {
-    // Usamos la nueva función calculateFromLineTotal
-    const calcs = calculateFromLineTotal(item.total, item.quantity);
-    return {
-      subtotal: acc.subtotal + parseFloat(calcs.lineSubtotal),
-      igv: acc.igv + parseFloat(calcs.lineIgv),
-      total: acc.total + parseFloat(calcs.lineTotalIncIGV),
-    };
-  }, { subtotal: 0, igv: 0, total: 0 });
+  const totals = sumLines(items);
 
   return {
     items,
@@ -54,5 +49,6 @@ export const useInvoice = () => {
     addItem,
     removeItem,
     updateItem,
+    resetItems,
   };
 };

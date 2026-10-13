@@ -1,16 +1,19 @@
 import React, { useState } from 'react';
-import { calculateFromLineTotal } from '../utils/calculations'; // Importar la nueva función
+import { calculateFromLineTotal } from '../utils/calculations';
+import { copyText } from '../utils/greeting';
 
-export const InvoiceItem = ({ item, onUpdate, onRemove, autoFocus }) => {
+export const InvoiceItem = ({ item, onUpdate, onRemove, onEnter, autoFocus }) => {
   // item.total ahora es el lineTotalIncIGV
   const calcs = calculateFromLineTotal(item.total, item.quantity);
   const [copiedUnitPrice, setCopiedUnitPrice] = useState(false);
 
   const copyUnitPriceToClipboard = () => {
     // Copiamos el precio unitario sin IGV
-    navigator.clipboard.writeText(calcs.unitSubtotal);
-    setCopiedUnitPrice(true);
-    setTimeout(() => setCopiedUnitPrice(false), 2000);
+    copyText(calcs.unitSubtotal).then((ok) => {
+      if (!ok) return;
+      setCopiedUnitPrice(true);
+      setTimeout(() => setCopiedUnitPrice(false), 2000);
+    });
   };
 
   return (
@@ -21,6 +24,8 @@ export const InvoiceItem = ({ item, onUpdate, onRemove, autoFocus }) => {
           <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase mb-1 block">Cant.</label>
           <input
             type="number"
+            inputMode="decimal"
+            onFocus={(e) => e.target.select()}
             className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-center font-semibold dark:text-gray-200 transition-colors"
             value={item.quantity}
             onChange={(e) => onUpdate(item.id, 'quantity', e.target.value)}
@@ -32,7 +37,12 @@ export const InvoiceItem = ({ item, onUpdate, onRemove, autoFocus }) => {
           <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase mb-1 block">Monto Total (Inc. IGV)</label>
           <input
             type="number"
+            inputMode="decimal"
             autoFocus={autoFocus}
+            onFocus={(e) => e.target.select()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && item.total !== '') onEnter();
+            }}
             className="w-full p-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none font-bold text-blue-700 dark:text-blue-400 text-lg transition-colors"
             placeholder="0.00"
             value={item.total} // item.total ahora es el lineTotalIncIGV
@@ -44,6 +54,7 @@ export const InvoiceItem = ({ item, onUpdate, onRemove, autoFocus }) => {
         <div className="col-span-3 flex flex-col items-end gap-1">
           <button 
             onClick={() => onRemove(item.id)}
+            tabIndex={-1}
             className="p-2 text-red-300 hover:text-red-500 dark:text-red-900/50 dark:hover:text-red-500 transition-colors"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -68,6 +79,11 @@ export const InvoiceItem = ({ item, onUpdate, onRemove, autoFocus }) => {
         >
           {copiedUnitPrice ? '¡PRECIO UNITARIO COPIADO!' : `COPIAR PRECIO UNITARIO (SIN IGV): S/ ${calcs.unitSubtotal}`}
         </button>
+        {!calcs.isExact && (
+          <p className="mt-2 text-[10px] text-amber-600 dark:text-amber-400 text-center">
+            Ojo: con este monto SUNAT puede variar S/ 0.01 por redondeo.
+          </p>
+        )}
       </div>
     </div>
   );
