@@ -3,12 +3,13 @@
 
 const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 // Se prueban en orden; los 2.5 solo se sirven a cuentas que ya los usaban, por eso arrancamos con la serie 3
-const MODELS = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite'];
+const MODELS = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3-flash-preview'];
 const MAX_BASE64_CHARS = 4_000_000;
 const MAX_ITEMS = 50;
 const REQUEST_TIMEOUT_MS = 20_000;
 const OVERLOAD_RETRY_DELAY_MS = 1500;
 const OVERLOAD_RETRIES = 1;
+const TOTAL_BUDGET_MS = 45_000;
 const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 const PROMPT = `Eres un asistente que lee notas de venta peruanas escritas a mano o impresas.
@@ -124,23 +125,28 @@ const askModelWithRetry = async (input, model) => {
 };
 
 const scanWithFallback = async (input) => {
+  const attempts = [];
+  const startedAt = Date.now();
   let lastError;
   for (const model of getModels()) {
+    if (lastError && Date.now() - startedAt > TOTAL_BUDGET_MS) break;
     try {
       return await askModelWithRetry(input, model);
     } catch (error) {
       lastError = error;
+      attempts.push(`${model}: ${error instanceof GeminiError ? error.status : error.name}`);
       const canTryNext = error.name === 'TimeoutError' || (error instanceof GeminiError && RETRYABLE_STATUSES.has(error.status));
       if (!canTryNext) break;
     }
   }
+  lastError.attempts = attempts.join(' | ');
   throw lastError;
 };
 
 const describeError = (error) => {
   if (error.name === 'TimeoutError') return 'Gemini tardó demasiado en responder. Intenta de nuevo.';
   if (!(error instanceof GeminiError)) return 'No se pudo interpretar la respuesta. Intenta de nuevo con una foto más clara.';
-  const detail = `(Gemini ${error.status}${error.geminiStatus ? ` ${error.geminiStatus}` : ''})`;
+  const detail = `(${error.attempts || `Gemini ${error.status} ${error.geminiStatus}`})`;
   if (error.status === 429) return `Se alcanzó el límite gratuito de Gemini. Espera un minuto e intenta de nuevo. ${detail}`;
   if (error.status === 400 || error.status === 403) return `Gemini rechazó la solicitud: revisa que la clave GEMINI_API_KEY sea válida. ${detail}`;
   if (error.status === 404) return `El modelo de Gemini no está disponible. ${detail}`;
