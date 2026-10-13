@@ -6,6 +6,9 @@ const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 const MODELS = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite'];
 const MAX_BASE64_CHARS = 4_000_000;
 const MAX_ITEMS = 50;
+const REQUEST_TIMEOUT_MS = 20_000;
+const OVERLOAD_RETRY_DELAY_MS = 1500;
+const OVERLOAD_RETRIES = 1;
 const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 const PROMPT = `Eres un asistente que lee notas de venta peruanas escritas a mano o impresas.
@@ -86,6 +89,7 @@ const askGemini = async ({ image, mimeType }, model) => {
       'Content-Type': 'application/json',
       'x-goog-api-key': process.env.GEMINI_API_KEY,
     },
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     body: JSON.stringify({
       contents: [{ parts: [{ text: PROMPT }, { inline_data: { mime_type: mimeType, data: image } }] }],
       generationConfig: { responseMimeType: 'application/json', responseSchema: RESPONSE_SCHEMA },
@@ -104,26 +108,45 @@ const askGemini = async ({ image, mimeType }, model) => {
   return JSON.parse(text);
 };
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Un modelo saturado (503) se reintenta una vez; otros errores pasan directo al siguiente modelo. */
+const askModelWithRetry = async (input, model) => {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await askGemini(input, model);
+    } catch (error) {
+      const isOverloaded = error instanceof GeminiError && error.status === 503;
+      if (!isOverloaded || attempt >= OVERLOAD_RETRIES) throw error;
+      await sleep(OVERLOAD_RETRY_DELAY_MS);
+    }
+  }
+};
+
 const scanWithFallback = async (input) => {
   let lastError;
   for (const model of getModels()) {
     try {
-      return await askGemini(input, model);
+      return await askModelWithRetry(input, model);
     } catch (error) {
       lastError = error;
-      if (!(error instanceof GeminiError) || !RETRYABLE_STATUSES.has(error.status)) break;
+      const canTryNext = error.name === 'TimeoutError' || (error instanceof GeminiError && RETRYABLE_STATUSES.has(error.status));
+      if (!canTryNext) break;
     }
   }
   throw lastError;
 };
 
 const describeError = (error) => {
+  if (error.name === 'TimeoutError') return 'Gemini tardó demasiado en responder. Intenta de nuevo.';
   if (!(error instanceof GeminiError)) return 'No se pudo interpretar la respuesta. Intenta de nuevo con una foto más clara.';
   const detail = `(Gemini ${error.status}${error.geminiStatus ? ` ${error.geminiStatus}` : ''})`;
   if (error.status === 429) return `Se alcanzó el límite gratuito de Gemini. Espera un minuto e intenta de nuevo. ${detail}`;
   if (error.status === 400 || error.status === 403) return `Gemini rechazó la solicitud: revisa que la clave GEMINI_API_KEY sea válida. ${detail}`;
   if (error.status === 404) return `El modelo de Gemini no está disponible. ${detail}`;
-  return `Gemini no pudo procesar la imagen. Intenta de nuevo. ${detail}`;
+  return error.status === 503
+    ? `Los servidores de Gemini están saturados ahora mismo. Espera un momento e intenta de nuevo. ${detail}`
+    : `Gemini no pudo procesar la imagen. Intenta de nuevo. ${detail}`;
 };
 
 export default async function handler(req, res) {
