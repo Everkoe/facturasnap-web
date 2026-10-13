@@ -3,6 +3,7 @@
 
 const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 const DEFAULT_MODEL = 'gemini-2.5-flash';
+const FALLBACK_MODEL = 'gemini-2.5-flash-lite';
 const MAX_BASE64_CHARS = 4_000_000;
 const MAX_ITEMS = 50;
 const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -65,8 +66,20 @@ export const sanitizeResult = (raw) => {
   return { documento: documento || null, items, total: toNumber(raw?.total) };
 };
 
-const askGemini = async ({ image, mimeType }) => {
-  const model = process.env.GEMINI_MODEL || DEFAULT_MODEL;
+class GeminiError extends Error {
+  constructor(status, geminiStatus) {
+    super(`Gemini respondió ${status} ${geminiStatus}`);
+    this.status = status;
+    this.geminiStatus = geminiStatus;
+  }
+}
+
+// Errores donde probar con otro modelo tiene sentido (cuota por modelo, modelo retirado, sobrecarga)
+const RETRYABLE_STATUSES = new Set([404, 429, 500, 503]);
+
+const getModels = () => [...new Set([process.env.GEMINI_MODEL || DEFAULT_MODEL, FALLBACK_MODEL])];
+
+const askGemini = async ({ image, mimeType }, model) => {
   const response = await fetch(`${GEMINI_URL}/${model}:generateContent`, {
     method: 'POST',
     headers: {
@@ -80,14 +93,37 @@ const askGemini = async ({ image, mimeType }) => {
   });
 
   if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(`Gemini respondió ${response.status}: ${detail.slice(0, 300)}`);
+    const body = await response.json().catch(() => ({}));
+    console.error(`Gemini ${model} ${response.status}:`, JSON.stringify(body?.error ?? body).slice(0, 500));
+    throw new GeminiError(response.status, body?.error?.status ?? '');
   }
 
   const data = await response.json();
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error('Gemini no devolvió texto');
   return JSON.parse(text);
+};
+
+const scanWithFallback = async (input) => {
+  let lastError;
+  for (const model of getModels()) {
+    try {
+      return await askGemini(input, model);
+    } catch (error) {
+      lastError = error;
+      if (!(error instanceof GeminiError) || !RETRYABLE_STATUSES.has(error.status)) break;
+    }
+  }
+  throw lastError;
+};
+
+const describeError = (error) => {
+  if (!(error instanceof GeminiError)) return 'No se pudo interpretar la respuesta. Intenta de nuevo con una foto más clara.';
+  const detail = `(Gemini ${error.status}${error.geminiStatus ? ` ${error.geminiStatus}` : ''})`;
+  if (error.status === 429) return `Se alcanzó el límite gratuito de Gemini. Espera un minuto e intenta de nuevo. ${detail}`;
+  if (error.status === 400 || error.status === 403) return `Gemini rechazó la solicitud: revisa que la clave GEMINI_API_KEY sea válida. ${detail}`;
+  if (error.status === 404) return `El modelo de Gemini no está disponible. ${detail}`;
+  return `Gemini no pudo procesar la imagen. Intenta de nuevo. ${detail}`;
 };
 
 export default async function handler(req, res) {
@@ -104,10 +140,10 @@ export default async function handler(req, res) {
   }
 
   try {
-    const raw = await askGemini({ image, mimeType });
+    const raw = await scanWithFallback({ image, mimeType });
     return res.status(200).json(sanitizeResult(raw));
   } catch (error) {
     console.error('scan error:', error.message);
-    return res.status(502).json({ error: 'No se pudo leer la imagen. Intenta de nuevo.' });
+    return res.status(502).json({ error: describeError(error) });
   }
 }
