@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { CopyValue } from './CopyValue';
 import { prepareImage } from '../utils/image';
-import { classifyDocument } from '../utils/documents';
+import { classifyDocument, isValidMobile } from '../utils/documents';
 
 const ITEMS_TOLERANCE = 0.01;
 
@@ -71,6 +71,7 @@ export const DocumentScanner = ({ onLoadItems }) => {
   };
 
   const doc = result?.documento ? classifyDocument(result.documento) : null;
+  const hasPhone = Boolean(result?.telefono);
   const itemsSum = result?.items.reduce((acc, item) => acc + item.importe, 0) ?? 0;
   const totalMatches = result?.total != null && Math.abs(itemsSum - result.total) < ITEMS_TOLERANCE;
 
@@ -101,6 +102,15 @@ export const DocumentScanner = ({ onLoadItems }) => {
             </div>
           ) : (
             <Notice tone="warn">No se encontró RUC ni DNI en la imagen.</Notice>
+          )}
+
+          {hasPhone && (
+            <div>
+              <CopyValue label="Celular del cliente" value={result.telefono} raw />
+              {!isValidMobile(result.telefono) && (
+                <Notice tone="warn">No parece un celular de 9 dígitos que empiece con 9: revísalo en la foto.</Notice>
+              )}
+            </div>
           )}
 
           {result.items.length > 0 && (

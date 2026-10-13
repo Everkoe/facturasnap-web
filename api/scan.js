@@ -15,6 +15,7 @@ const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const PROMPT = `Eres un asistente que lee notas de venta peruanas escritas a mano o impresas.
 Extrae:
 - documento: el RUC (11 dígitos) o DNI (8 dígitos) del CLIENTE, escrito junto a "Señor(es)". Devuélvelo solo con dígitos, sin espacios ni guiones. No uses teléfonos, el número de la nota ni datos del negocio que emite la nota. Si no hay, devuelve null.
+- telefono: el celular del CLIENTE, normalmente escrito a mano con "Cel." en el cuerpo de la nota, después de las filas. Devuélvelo solo con 9 dígitos. NO uses los teléfonos impresos del encabezado o del pie (son del negocio que emite la nota). Si no hay, devuelve null.
 - items: cada fila escrita en la tabla, con cantidad (número), descripcion (texto) e importe (el monto total de esa fila, número). Ignora filas vacías.
 - total: el total final de la nota como número, o null si no se ve.
 Si un número manuscrito es dudoso, devuelve tu mejor lectura. No inventes datos que no estén en la imagen.`;
@@ -23,6 +24,7 @@ const RESPONSE_SCHEMA = {
   type: 'OBJECT',
   properties: {
     documento: { type: 'STRING', nullable: true },
+    telefono: { type: 'STRING', nullable: true },
     items: {
       type: 'ARRAY',
       items: {
@@ -55,6 +57,18 @@ const toNumber = (value) => {
   return Number.isFinite(number) && number >= 0 ? number : null;
 };
 
+const PERU_COUNTRY_CODE = '51';
+const PHONE_LENGTH = 9;
+
+/** Deja solo los dígitos del celular y quita el prefijo +51 si viene. */
+const normalizePhone = (value) => {
+  let digits = typeof value === 'string' ? value.replace(/\D/g, '') : '';
+  if (digits.length === PHONE_LENGTH + PERU_COUNTRY_CODE.length && digits.startsWith(PERU_COUNTRY_CODE)) {
+    digits = digits.slice(PERU_COUNTRY_CODE.length);
+  }
+  return digits || null;
+};
+
 /** Normaliza lo que devuelve el modelo para no confiar en su formato. */
 export const sanitizeResult = (raw) => {
   const documento = typeof raw?.documento === 'string' ? raw.documento.replace(/\D/g, '') : '';
@@ -67,7 +81,7 @@ export const sanitizeResult = (raw) => {
     }))
     .filter((item) => item.cantidad !== null && item.cantidad > 0 && item.importe !== null && item.importe > 0);
 
-  return { documento: documento || null, items, total: toNumber(raw?.total) };
+  return { documento: documento || null, telefono: normalizePhone(raw?.telefono), items, total: toNumber(raw?.total) };
 };
 
 class GeminiError extends Error {

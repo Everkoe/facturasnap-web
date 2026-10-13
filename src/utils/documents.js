@@ -12,6 +12,9 @@ export const isValidRuc = (ruc) => {
   return check === Number(ruc[RUC_LENGTH - 1]);
 };
 
+/** Un celular peruano tiene 9 dígitos y empieza con 9. */
+export const isValidMobile = (phone) => /^9\d{8}$/.test(phone ?? '');
+
 /**
  * Clasifica el documento leído: { kind: 'RUC' | 'DNI' | 'DESCONOCIDO', isValid }.
  * El DNI solo se puede validar por longitud (no tiene dígito verificador público).
